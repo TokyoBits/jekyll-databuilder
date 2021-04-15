@@ -52,6 +52,7 @@ module Jekyll
           bucket_objects.contents.each do |obj|
             if obj.key.include? ".csv"
               filename = obj.key.split('/').last
+              puts "** Saving CSV: #{csv_directory}/#{filename}"
               resp = @client.get_object({ bucket: bucket_name, key: obj.key}, target: "#{csv_directory}/#{filename}")
             end
 

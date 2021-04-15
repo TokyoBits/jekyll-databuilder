@@ -45,10 +45,14 @@ module Jekyll
     
         def read_csv_from_s3
           bucket_objects = @client.list_objects(bucket: bucket_name)
+          
+          csv_directory = "_data"
+          Dir.mkdir(csv_directory) unless File.exists?(csv_directory)
+
           bucket_objects.contents.each do |obj|
             if obj.key.include? ".csv"
               filename = obj.key.split('/').last
-              resp = @client.get_object({ bucket: bucket_name, key: obj.key}, target: "_data/#{filename}")
+              resp = @client.get_object({ bucket: bucket_name, key: obj.key}, target: "#{csv_directory}/#{filename}")
             end
 
             assets_directory = "assets/text"

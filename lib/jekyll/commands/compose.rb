@@ -51,9 +51,11 @@ module Jekyll
               resp = @client.get_object({ bucket: bucket_name, key: obj.key}, target: "_data/#{filename}")
             end
 
-            if obj.key.include? "assets/text/"
+            assets_directory = "assets/text"
+            if obj.key.include? assets_directory
+              Dir.mkdir(assets_directory) unless File.exists?(assets_directory)
               filename = obj.key.split('/').last
-              resp = @client.get_object({ bucket: bucket_name, key: obj.key}, target: "assets/text/#{filename}")
+              resp = @client.get_object({ bucket: bucket_name, key: obj.key}, target: "#{assets_directory}/#{filename}")
             end
           end
         end

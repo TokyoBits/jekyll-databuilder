@@ -61,17 +61,17 @@ module Jekyll
         private
     
         def region
-          process.env.REGION
+          ENV['REGION']
         end
     
         def bucket_name
-          process.env.BUCKET_NAME
+          ENV['BUCKET_NAME']
         end
     
         def credentials
          Aws::Credentials.new(
-          process.env.ACCESS_KEY_ID,
-          process.env.SECRET_ACCESS_KEY
+          ENV['ACCESS_KEY_ID'],
+          ENV['SECRET_ACCESS_KEY']
          )
         end
       end

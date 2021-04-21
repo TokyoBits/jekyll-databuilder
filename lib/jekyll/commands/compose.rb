@@ -45,7 +45,7 @@ module Jekyll
         end
 
         def upload_site_to_s3
-          directory_to_zip = "_site/assets"
+          directory_to_zip = "/opt/build/repo/_site/assets"
           output_file = "fukagawa.zip"
           zf = ZipFileGenerator.new(directory_to_zip, output_file)
           zf.write()

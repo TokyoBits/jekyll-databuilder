@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 require 'aws-sdk'
-require 'net/ftp'
+require 'zip'
 
 module Jekyll
   module Commands    
@@ -39,37 +39,19 @@ module Jekyll
         Databuilder::FileEditor.open_editor(file_creator.file_path)
       end
 
-      class Uploader
-        def initialize()
-          puts "Creating Uploader"
-        end
-
-        def upload_to_ftp
-          Net::FTP.open(ENV['FTP_ADDR'], ENV['FTP_USER'], ENV['FTP_PWD']) do |ftp|
-            puts "Connected to FTP"
-            files = ftp.chdir('httpdocs')
-            File.open('_data/categories.csv') do |file|
-              puts "Uploading file..."
-              ftp.put(file)
-            end
-            puts "Uploaded file"
-          end
-        end
-      end
-
-      
-
-
       class S3
         def initialize()
           @client = Aws::S3::Client.new(region: region, credentials: credentials)
         end
 
+        def upload_site_to_s3
+          directory_to_zip = "_site/assets"
+          output_file = "fukagawa.zip"
+          zf = ZipFileGenerator.new(directory_to_zip, output_file)
+          zf.write()
 
-        def upload_to_s3
-          path = "_site/feed.xml"
-          # @client.bucket(bucket_name).object(path).upload_file(feed.xml)
-          resp = @client.put_object({ body: path, bucket: bucket_name, key: "feed.xml"})
+          file = File.read(output_file)
+          resp = @client.put_object({ body: file, bucket: bucket_name, key: "fukagawa.zip"})
         end
     
         def read_csv_from_s3
@@ -93,7 +75,7 @@ module Jekyll
             end
           end
 
-          upload_to_s3
+          upload_site_to_s3
         end
     
         private
@@ -176,6 +158,49 @@ module Jekyll
 
         def time_stamp
           @params.date.strftime(Jekyll::Databuilder::DEFAULT_TIMESTAMP_FORMAT)
+        end
+      end
+
+      class ZipFileGenerator
+        # Initialize with the directory to zip and the location of the output archive.
+        def initialize(input_dir, output_file)
+          @input_dir = input_dir
+          @output_file = output_file
+        end
+      
+        # Zip the input directory.
+        def write
+          entries = Dir.entries(@input_dir) - %w[. ..]
+      
+          ::Zip::File.open(@output_file, ::Zip::File::CREATE) do |zipfile|
+            write_entries entries, '', zipfile
+          end
+        end
+      
+        private
+      
+        # A helper method to make the recursion work.
+        def write_entries(entries, path, zipfile)
+          entries.each do |e|
+            zipfile_path = path == '' ? e : File.join(path, e)
+            disk_file_path = File.join(@input_dir, zipfile_path)
+      
+            if File.directory? disk_file_path
+              recursively_deflate_directory(disk_file_path, zipfile, zipfile_path)
+            else
+              put_into_archive(disk_file_path, zipfile, zipfile_path)
+            end
+          end
+        end
+      
+        def recursively_deflate_directory(disk_file_path, zipfile, zipfile_path)
+          zipfile.mkdir zipfile_path
+          subdir = Dir.entries(disk_file_path) - %w[. ..]
+          write_entries subdir, zipfile_path, zipfile
+        end
+      
+        def put_into_archive(disk_file_path, zipfile, zipfile_path)
+          zipfile.add(zipfile_path, disk_file_path)
         end
       end
     end

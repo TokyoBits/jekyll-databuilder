@@ -18,6 +18,6 @@ module Jekyll
   end
 end
 
-%w(compose).each do |file|
+%w(s3_uploader compose).each do |file|
   require File.expand_path("jekyll/commands/#{file}.rb", __dir__)
 end

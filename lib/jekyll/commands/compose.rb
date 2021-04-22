@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require 'aws-sdk'
+require 'zip'
 
 module Jekyll
   module Commands    
@@ -7,7 +8,7 @@ module Jekyll
       def self.init_with_program(prog)
         prog.command(:compose) do |c|
           Jekyll.logger.info "Fetching Data from S3!"
-          S3.new().read_csv_from_s3
+          S3.new().upload_site_to_s3
         end
       end
 
@@ -41,6 +42,19 @@ module Jekyll
       class S3
         def initialize()
           @client = Aws::S3::Client.new(region: region, credentials: credentials)
+        end
+
+        def upload_site_to_s3
+          directory_to_zip = "assets" #"/opt/build/repo/_site/assets"
+          output_file = "fukagawa.zip"
+          puts "Zipping generated site directory..."
+          zf = ZipFileGenerator.new(directory_to_zip, output_file)
+          zf.write()
+
+          file = File.read(output_file)
+          puts "Uploading zipped file to S3..."
+          resp = @client.put_object({ body: file, bucket: bucket_name, key: "fukagawa.zip"})
+          puts "Uploading to S3 finished!"
         end
     
         def read_csv_from_s3
@@ -145,6 +159,49 @@ module Jekyll
 
         def time_stamp
           @params.date.strftime(Jekyll::Databuilder::DEFAULT_TIMESTAMP_FORMAT)
+        end
+      end
+
+      class ZipFileGenerator
+        # Initialize with the directory to zip and the location of the output archive.
+        def initialize(input_dir, output_file)
+          @input_dir = input_dir
+          @output_file = output_file
+        end
+      
+        # Zip the input directory.
+        def write
+          entries = Dir.entries(@input_dir) - %w[. ..]
+      
+          ::Zip::File.open(@output_file, ::Zip::File::CREATE) do |zipfile|
+            write_entries entries, '', zipfile
+          end
+        end
+      
+        private
+      
+        # A helper method to make the recursion work.
+        def write_entries(entries, path, zipfile)
+          entries.each do |e|
+            zipfile_path = path == '' ? e : File.join(path, e)
+            disk_file_path = File.join(@input_dir, zipfile_path)
+      
+            if File.directory? disk_file_path
+              recursively_deflate_directory(disk_file_path, zipfile, zipfile_path)
+            else
+              put_into_archive(disk_file_path, zipfile, zipfile_path)
+            end
+          end
+        end
+      
+        def recursively_deflate_directory(disk_file_path, zipfile, zipfile_path)
+          zipfile.mkdir zipfile_path
+          subdir = Dir.entries(disk_file_path) - %w[. ..]
+          write_entries subdir, zipfile_path, zipfile
+        end
+      
+        def put_into_archive(disk_file_path, zipfile, zipfile_path)
+          zipfile.add(zipfile_path, disk_file_path)
         end
       end
     end
